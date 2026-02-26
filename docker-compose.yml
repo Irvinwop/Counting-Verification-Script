@@ -1,7 +1,7 @@
 services:
   uwu:
     build: .
-    image: hdt-counting-test
+    image: counter-script
     volumes:
       - ./info.json:/uwu/info.json:ro
       - ./runtime/:/uwu/runtime/
