@@ -1,0 +1,7 @@
+[Unit]
+Description=Set daily leaderboard flag
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h/Counting-Verification-Script
+ExecStart=/bin/sh -c 'mkdir -p runtime && echo 1 > runtime/send_leaderboard.flag'

@@ -1,0 +1,10 @@
+[Unit]
+Description=Run daily flag setter
+
+[Timer]
+OnCalendar=*-*-* 00:00:00
+Persistent=true
+Unit=counting-daily-flag.service
+
+[Install]
+WantedBy=timers.target

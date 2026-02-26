@@ -1,0 +1,16 @@
+[Unit]
+Description=Counting Script Container
+After=docker.service network-online.target
+Requires=docker.service
+
+[Service]
+Type=simple
+WorkingDirectory=%h/Counting-Verification-Script
+ExecStartPre=/bin/mkdir -p runtime
+ExecStart=/usr/bin/env docker-compose up --build uwu
+ExecStop=/usr/bin/env docker-compose down
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
