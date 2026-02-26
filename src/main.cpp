@@ -81,6 +81,7 @@ inline string create_fetch_before_link(uint64_t channel, uint64_t before, uint64
 void write_lb(string lb) {
     fstream uwu("runtime/leaderboard.txt.tmp", ios::trunc);
     uwu << lb;
+    uwu.close();
     rename("runtime/leaderboard.txt.tmp", "runtime/leaderboard.txt");
     return;
 }
