@@ -277,11 +277,11 @@ void init() {
     to = info.at("range").at("to_id").get<uint64_t>();
     vector_reserve = info.at("reserve").get<uint64_t>();
     status_sending_channel_id = info.at("status_channel_id").get<uint64_t>();
-    f = ifstream("runtime/daily.flag");
+    f = ifstream("runtime/send_leaderboard.flag");
     f >> flag;
     f.close();
     if (flag) {
-        fstream owo("runtime/daily.flag");
+        fstream owo("runtime/send_leaderboard.flag");
         owo << 0;
     }
 }
