@@ -1,5 +1,5 @@
 services:
-  app:
+  uwu:
     build: .
     image: hdt-counting-test
     volumes:
