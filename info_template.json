@@ -1,7 +1,7 @@
 {
-    "cookies": "",
     "authorization": "",
     "channel_id": 6767,
+    "status_channel_id":6767,
     "limit": 100,
     "range": {
         "from_id": 0,

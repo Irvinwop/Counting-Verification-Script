@@ -1,4 +1,6 @@
 #include "nlohmann/json.hpp"
+#include <iostream>
+#include <format>
 #include <cctype>
 #include <cmath>
 #include <fcntl.h>
@@ -30,7 +32,7 @@ struct author {
 struct message {
     uint64_t id;
     string content;
-    author author;
+    author au;
 };
 
 map<string, uint64_t> leaderboard;
@@ -39,6 +41,7 @@ string authorization;
 
 const uint64_t MEE6_ID = 159985870458322944;
 uint64_t channel_id;
+uint64_t status_sending_channel_id;
 uint64_t limit;
 uint64_t from;
 uint64_t to;
@@ -64,7 +67,7 @@ void from_json(const json& j, author& a) {
 void from_json(const json& j, message& m) {
     m.id = stoull(j.at("id").get<string>());
     m.content = j.at("content").get<string>();
-    m.author = j.at("author").get<author>();
+    m.au = j.at("author").get<author>();
 }
 
 inline string create_fetch_before_link(uint64_t channel, uint64_t before, uint64_t limit) {
@@ -83,9 +86,9 @@ string get_channel_name() {
             "-o", "response.json",
             "-w", "%{http_code}\n",
             "-H", ("authorization: " + authorization).c_str(),
-            create_fetch_before_link(channel_id, before, limit).c_str(),
+            ("https://discord.com/api/v9/channels/"+to_string(channel_id)).c_str(),
             nullptr);
-        exit(-1);
+        exit(0);
     } else {
         // parent
         int status;
@@ -100,42 +103,13 @@ string get_channel_name() {
         if (code == 200) {
             ifstream f("response.json");
             f >> body;
-            vector<message> monosodium_glutamate = body.get<vector<message>>();
-            if (!monosodium_glutamate.size()) return;
-            uint64_t nxt = before;
-            sort(monosodium_glutamate.begin(), monosodium_glutamate.end(), [](const struct message& a, const struct message& b){ return a.id > b.id; });
-            for (message& m : monosodium_glutamate) {
-                nxt = min(m.id, nxt);
-                if (m.id < from || m.author.author_id == MEE6_ID) continue;
-                ++leaderboard[m.author.username];
-                if (!all_of(m.content.begin(), m.content.end(), ::isdigit)) {
-                    not_num.emplace_back(m.id, m.content);
-                    continue;
-                }
-                msg.push_back({
-                    m.id,
-                    m.author.username,
-                    m.content
-                });
-                if (m.author.author_id == prev_id) multisend.push_back({
-                    m.author.username,
-                    {
-                        prev_m_id,
-                        m.id
-                    }
-                });
-                prev_id = m.author.author_id;
-                prev_m_id = m.id;
-            }
-            recurse(nxt);
-            return;
+            return body.at("name").get<string>();
         } else if (code == 429) {
             ifstream f("response.json");
             f >> body;
             if (body.contains("retry_after")) {
                 sleep((int) ceil(body.at("retry_after").get<long double>()));
-                recurse(before);
-                return;
+                return get_channel_name();
             }
         } else {
             exit(-1);
@@ -161,11 +135,88 @@ string generate_leaderboard(int l, int r) {
     return payload;
 }
 
-void recurse(uint64_t before) {
-    if (before <= from) return;
+void iterate(uint64_t before) {
+    while (before > from) {
+        pid_t pid = fork();
+        if (pid == 0) {
+            int fd = open(((string) "meta.txt").c_str(), O_CREAT|O_TRUNC|O_WRONLY, 0644);
+            dup2(fd, STDOUT_FILENO);
+            close(fd);
+            execlp("curl", "curl",
+                "-s",
+                "-D", "headers.txt",
+                "-o", "response.json",
+                "-w", "%{http_code}\n",
+                "-H", ("authorization: " + authorization).c_str(),
+                create_fetch_before_link(channel_id, before, limit).c_str(),
+                nullptr);
+            exit(0);
+        } else {
+            // parent
+            int status;
+            waitpid(pid, &status, 0);
+            if (!WIFEXITED(status)) exit(-1);
+            int exit_code = WEXITSTATUS(status);
+            if (exit_code) exit(-1);
+            ifstream reader("meta.txt");
+            int code;
+            reader >> code;
+            json body;
+            if (code == 200) {
+                ifstream f("response.json");
+                f >> body;
+                vector<message> monosodium_glutamate = body.get<vector<message>>();
+                if (!monosodium_glutamate.size()) return;
+                uint64_t nxt = before;
+                sort(monosodium_glutamate.begin(), monosodium_glutamate.end(), [](const struct message& a, const struct message& b){ return a.id > b.id; });
+                for (message& m : monosodium_glutamate) {
+                    nxt = min(m.id, nxt);
+                    if (m.id < from || m.au.author_id == MEE6_ID) continue;
+                    ++leaderboard[m.au.username];
+                    if (!all_of(m.content.begin(), m.content.end(), ::isdigit)) {
+                        not_num.emplace_back(m.id, m.content);
+                        continue;
+                    }
+                    msg.push_back({
+                        m.id,
+                        m.au.username,
+                        m.content
+                    });
+                    if (m.au.author_id == prev_id) multisend.push_back({
+                        m.au.username,
+                        {
+                            prev_m_id,
+                            m.id
+                        }
+                    });
+                    prev_id = m.au.author_id;
+                    prev_m_id = m.id;
+                }
+                before = nxt;
+                continue;
+            } else if (code == 429) {
+                ifstream f("response.json");
+                f >> body;
+                if (body.contains("retry_after")) {
+                    sleep((int) ceil(body.at("retry_after").get<long double>()));
+                    continue;
+                } else {
+                    exit(-1);
+                }
+            } else {
+                exit(-1);
+            }
+        }
+    }
+}
+//note,. only required things for post are data-raw, content-type, and authorization
+
+bool send_payload(string payload) {
     pid_t pid = fork();
+    json j;
     if (pid == 0) {
-        int fd = open(((string) "meta.txt").c_str(), O_CREAT|O_TRUNC|O_WRONLY, 0644);
+        j["content"] = payload;
+        int fd = open("meta.txt", O_CREAT|O_TRUNC|O_WRONLY, 0644);
         dup2(fd, STDOUT_FILENO);
         close(fd);
         execlp("curl", "curl",
@@ -173,71 +224,32 @@ void recurse(uint64_t before) {
             "-D", "headers.txt",
             "-o", "response.json",
             "-w", "%{http_code}\n",
+            "-H", "Content-Type: application/json",
             "-H", ("authorization: " + authorization).c_str(),
-            create_fetch_before_link(channel_id, before, limit).c_str(),
+            "--data-raw", j.dump().c_str(),
+            ("https://ptb.discord.com/api/v9/channels/"+to_string(status_sending_channel_id)+"/messages").c_str(),
             nullptr);
-        exit(-1);
+        exit(0);
     } else {
-        // parent
         int status;
         waitpid(pid, &status, 0);
-        if (!WIFEXITED(status)) exit(-1);
-        int exit_code = WEXITSTATUS(status);
-        if (exit_code) exit(-1);
+        if (!WIFEXITED(status) || WEXITSTATUS(status) != 0) return false;
         ifstream reader("meta.txt");
         int code;
         reader >> code;
-        json body;
         if (code == 200) {
-            ifstream f("response.json");
-            f >> body;
-            vector<message> monosodium_glutamate = body.get<vector<message>>();
-            if (!monosodium_glutamate.size()) return;
-            uint64_t nxt = before;
-            sort(monosodium_glutamate.begin(), monosodium_glutamate.end(), [](const struct message& a, const struct message& b){ return a.id > b.id; });
-            for (message& m : monosodium_glutamate) {
-                nxt = min(m.id, nxt);
-                if (m.id < from || m.author.author_id == MEE6_ID) continue;
-                ++leaderboard[m.author.username];
-                if (!all_of(m.content.begin(), m.content.end(), ::isdigit)) {
-                    not_num.emplace_back(m.id, m.content);
-                    continue;
-                }
-                msg.push_back({
-                    m.id,
-                    m.author.username,
-                    m.content
-                });
-                if (m.author.author_id == prev_id) multisend.push_back({
-                    m.author.username,
-                    {
-                        prev_m_id,
-                        m.id
-                    }
-                });
-                prev_id = m.author.author_id;
-                prev_m_id = m.id;
-            }
-            recurse(nxt);
-            return;
+            return true;
         } else if (code == 429) {
             ifstream f("response.json");
-            f >> body;
-            if (body.contains("retry_after")) {
-                sleep((int) ceil(body.at("retry_after").get<long double>()));
-                recurse(before);
-                return;
-            }
+            f >> j;
+            if (j.contains("retry_after")) {
+                sleep((int) ceil(j.at("retry_after").get<long double>()));
+            } else sleep(100);
+            return false;
         } else {
-            exit(-1);
+            return false;
         }
     }
-
-}
-//note,. only required things for post are data-raw, content-type, and authorization
-
-bool send_payload(string payload) {
-
 }
 
 void init() {
@@ -249,16 +261,16 @@ void init() {
     limit = info.at("limit").get<uint64_t>();
     from = info.at("range").at("from_id").get<uint64_t>();
     to = info.at("range").at("to_id").get<uint64_t>();
-    max_threads = info.at("max_threads").get<uint64_t>();
-    chunks = info.at("chunks").get<uint64_t>();
     vector_reserve = info.at("reserve").get<uint64_t>();
+    status_sending_channel_id = info.at("status_channel_id").get<uint64_t>();
 }
 
 signed main() {
     init();
     msg.reserve(vector_reserve);
-    recurse(to);
+    iterate(min((uint64_t)(9223372036854775807ull),max(to, to+1)));
     unsigned long long mx = 1;
+    unsigned long long mn = 9223372036854775807ull;
     sort(msg.begin(), msg.end(), [](const relevant& a, const relevant& b){ return a.id < b.id; });
     for (int i = 1; i < msg.size(); ++i) {
         if (stoull(msg[i-1].content) != stoull(msg[i].content)-1) {
@@ -274,6 +286,7 @@ signed main() {
             });
         }
         mx = max(mx, stoull(msg[i].content));
+        mn = min(mn, stoull(msg[i].content));
     }
     string payload = "";
     if (violations.size()) for (auto violation : violations) payload += format(
@@ -297,7 +310,7 @@ signed main() {
             idiot.second.second
         );
     if (violations.size() || not_num.size() || multisend.size());
-    else payload.append(generate_leaderboard(1, mx));
+    else payload.append(generate_leaderboard(mn, mx));
     for (int i = 0; i++ < 3 && !send_payload(payload););
     return 0;
 }

@@ -1,0 +1,6 @@
+services:
+  app:
+    build: .
+    image: hdt-counting-test
+    volumes:
+      - ./info.json:/uwu/info.json:ro

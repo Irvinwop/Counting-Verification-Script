@@ -1,3 +1,10 @@
 .git
 build
 *.o
+*.out
+hdt_count
+uwu
+meta.txt
+headers.txt
+response.json
+info.json
