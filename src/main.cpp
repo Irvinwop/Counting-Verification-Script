@@ -336,8 +336,8 @@ signed main() {
             idiot.second.first,
             idiot.second.second
         );
-    lb.append("time: "+time+"\n");
     lb = generate_leaderboard(mn, mx);
+    lb.append("\ntime: "+time);
     if (violations.size() || not_num.size() || multisend.size());
     else payload.append(lb);
     for (int i = 0; flag && i++ < 3 && !send_payload(payload););
