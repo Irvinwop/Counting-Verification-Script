@@ -33,7 +33,16 @@
 
 # Sensitive Tokens
 info.json
-temo
-with diddy
+.env
+.env.*
+
+# Runtime state and outputs
+runtime/
+
+# Local API/debug artifacts
+meta.txt
+headers.txt
+response.json
+*.log
 
 .vscode/
