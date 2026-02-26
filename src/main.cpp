@@ -79,7 +79,7 @@ inline string create_fetch_before_link(uint64_t channel, uint64_t before, uint64
 }
 
 void write_lb(string lb) {
-    fstream uwu("runtime/leaderboard.txt.tmp");
+    fstream uwu("runtime/leaderboard.txt.tmp", ios::trunc);
     uwu << lb;
     rename("runtime/leaderboard.txt.tmp", "runtime/leaderboard.txt");
     return;
@@ -204,8 +204,9 @@ void iterate(uint64_t before) {
                     prev_m_id = m.id;
                     prev_num = m.content;
                 }
-                fstream uwuwu("runtime/current_status.txt");
+                fstream uwuwu("runtime/current_status.txt", ios::trunc);
                 uwuwu << "The last number read was: " << prev_num;
+                uwuwu.close();
                 before = nxt;
                 continue;
             } else if (code == 429) {
@@ -281,7 +282,7 @@ void init() {
     f >> flag;
     f.close();
     if (flag) {
-        fstream owo("runtime/send_leaderboard.flag");
+        fstream owo("runtime/send_leaderboard.flag",ios::trunc);
         owo << 0;
     }
 }
