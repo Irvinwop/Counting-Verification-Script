@@ -1,5 +1,6 @@
 #include "nlohmann/json.hpp"
 #include <cstdio>
+#include <ctime>
 #include <iostream>
 #include <format>
 #include <cctype>
@@ -290,6 +291,9 @@ void init() {
 
 signed main() {
     init();
+    time_t ltime;
+    time(&ltime);
+    string time = asctime(gmtime(&ltime));
     msg.reserve(vector_reserve);
     iterate(min((uint64_t)(9223372036854775807ull),max(to, to+1)));
     unsigned long long mx = 1;
@@ -332,6 +336,7 @@ signed main() {
             idiot.second.first,
             idiot.second.second
         );
+    lb.append("time: "+time+"\n");
     lb = generate_leaderboard(mn, mx);
     if (violations.size() || not_num.size() || multisend.size());
     else payload.append(lb);
