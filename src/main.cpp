@@ -1,4 +1,5 @@
 #include "nlohmann/json.hpp"
+#include <cstdio>
 #include <iostream>
 #include <format>
 #include <cctype>
@@ -50,6 +51,9 @@ uint64_t chunks;
 uint64_t vector_reserve;
 uint64_t prev_id = MEE6_ID; //default for no-collide.
 uint64_t prev_m_id;
+string prev_num = "None for now!";
+
+int flag;
 
 vector<pair<string,pair<uint64_t, uint64_t>>> multisend;
 vector<pair<uint64_t,string>> not_num;
@@ -72,6 +76,13 @@ void from_json(const json& j, message& m) {
 
 inline string create_fetch_before_link(uint64_t channel, uint64_t before, uint64_t limit) {
     return "https://ptb.discord.com/api/v9/channels/" + to_string(channel) + "/messages?before=" + to_string(before) + "&limit=" + to_string(limit);
+}
+
+void write_lb(string lb) {
+    fstream uwu("runtime/leaderboard.txt.tmp");
+    uwu << lb;
+    rename("runtime/leaderboard.txt.tmp", "runtime/leaderboard.txt");
+    return;
 }
 
 string get_channel_name() {
@@ -191,7 +202,10 @@ void iterate(uint64_t before) {
                     });
                     prev_id = m.au.author_id;
                     prev_m_id = m.id;
+                    prev_num = m.content;
                 }
+                fstream uwuwu("runtime/current_status.txt");
+                uwuwu << "The last number read was: " << prev_num;
                 before = nxt;
                 continue;
             } else if (code == 429) {
@@ -263,6 +277,13 @@ void init() {
     to = info.at("range").at("to_id").get<uint64_t>();
     vector_reserve = info.at("reserve").get<uint64_t>();
     status_sending_channel_id = info.at("status_channel_id").get<uint64_t>();
+    f = ifstream("runtime/daily.flag");
+    f >> flag;
+    f.close();
+    if (flag) {
+        fstream owo("runtime/daily.flag");
+        owo << 0;
+    }
 }
 
 signed main() {
@@ -288,8 +309,8 @@ signed main() {
         mx = max(mx, stoull(msg[i].content));
         mn = min(mn, stoull(msg[i].content));
     }
-    string payload = "";
-    if (violations.size()) for (auto violation : violations) payload += format(
+    string payload = "", lb;
+    if (violations.size() && (flag = 1)) for (auto violation : violations) payload += format(
             "Counting Violation: '{}' -> '{}' msg_ids: {{{},{}}}\n",
             violation.first.second,
             violation.second.second,
@@ -297,20 +318,22 @@ signed main() {
             violation.second.first
         );
     else payload.append("No counting violations!\n");
-    if (not_num.size()) for (auto idiot : not_num) payload += format(
+    if (not_num.size() && (flag = 1)) for (auto idiot : not_num) payload += format(
             "Not a number: '{}' msg_id: {}\n",
             idiot.second,
             idiot.first
         );
     else payload.append("Everything is a number!\n");
-    if (multisend.size()) for (auto idiot : multisend) payload += format(
+    if (multisend.size() && (flag = 1)) for (auto idiot : multisend) payload += format(
             "{} is an idiot and sent messages {} and {} back to back!\n",
             idiot.first,
             idiot.second.first,
             idiot.second.second
         );
+    lb = generate_leaderboard(mn, mx);
     if (violations.size() || not_num.size() || multisend.size());
-    else payload.append(generate_leaderboard(mn, mx));
-    for (int i = 0; i++ < 3 && !send_payload(payload););
+    else payload.append(lb);
+    for (int i = 0; flag && i++ < 3 && !send_payload(payload););
+    write_lb(lb);
     return 0;
 }
